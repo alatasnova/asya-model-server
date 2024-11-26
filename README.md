@@ -3,7 +3,7 @@
 У вас должен быть установлен Python, желательно версии 3.12\
 После нужно установить минимальные зависимости:
 ```bash
-pip install -c requirements_min.txt
+pip install -r requirements_min.txt
 ```
 Потом нужно запустить файл start_server.py
 ```bash
