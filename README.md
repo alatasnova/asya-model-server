@@ -1,7 +1,7 @@
 # Подготовка
 ## Как запустить сервер?
 У вас должен быть установлен Python, желательно версии 3.12\
-После нужно установить минимальные зависимости:\
+После нужно установить минимальные зависимости:
 ```bash
 pip install -c requirements_min.txt
 ```
@@ -26,8 +26,8 @@ python train.py
 # Использование
 ## Server API
 ### Модель распознавания
-Пример запроса:
-GET http://localhost:port/recognition?text=включи%20музыку
+Пример запроса:\
+GET http://localhost:port/recognition?text=включи%20музыку  
 Ответ:
 ```json
 {"error":null,"result":{"answer":"turn_on_music","confidence":0.840986967086792}}
