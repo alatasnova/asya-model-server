@@ -6,6 +6,7 @@ nltk.download('punkt_tab')
 import torch.nn as nn
 import torch.optim as optim
 import base.model_meta as model_meta
+from base.model_meta import tokenize
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
@@ -34,7 +35,7 @@ for label_name, answers in dataset.items():
                           )
         labels.append(model_meta.labels_matrix[model_meta.labels_text.index(label_name)])
 
-tokenized_texts = [text.lower().split(" ") for text in total_text]
+tokenized_texts = [tokenize(text.lower()) for text in total_text]
 
 # Build vocabulary
 vocab = Counter(word for sentence in tokenized_texts for word in sentence)
@@ -71,7 +72,7 @@ class TextDataset(Dataset):
 
 
 # Split data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.0025, random_state=42)
 
 # Create DataLoader
 train_dataset = TextDataset(X_train, y_train)
@@ -81,8 +82,8 @@ test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Model parameters
 vocab_size = len(vocab) + 1
-embed_size = 200
-hidden_size = 1024  # idk
+embed_size = 500
+hidden_size = 512  # idk
 output_size = len(model_meta.labels_text)
 
 model = model_meta.LSTMClassifier(vocab_size, embed_size, hidden_size, output_size).to(DEVICE)
