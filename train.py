@@ -1,12 +1,15 @@
 import torch
 import nltk
 import json, configparser
+import onnxruntime
+import numpy as np
 
 nltk.download('punkt_tab')
 import torch.nn as nn
 import torch.optim as optim
-import base.model_meta as model_meta
-from base.model_meta import tokenize
+import base.model_structure
+import base.model_tools as model_tools
+from base.model_tools import tokenize
 from collections import Counter
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
@@ -33,7 +36,7 @@ for label_name, answers in dataset.items():
                           .replace(",", "")
                           .replace("?", "")
                           )
-        labels.append(model_meta.labels_matrix[model_meta.labels_text.index(label_name)])
+        labels.append(torch.from_numpy(model_tools.labels_matrix[model_tools.labels_text.index(label_name)]).float())
 
 tokenized_texts = [tokenize(text.lower()) for text in total_text]
 
@@ -55,9 +58,8 @@ max_length = max(len(seq) for seq in sequences)
 padded_sequences = [seq + [0] * (max_length - len(seq)) for seq in sequences]
 
 # Convert to tensors
-X = torch.tensor(padded_sequences, dtype=torch.long)
+X = torch.tensor(padded_sequences).int()
 y = labels
-
 
 class TextDataset(Dataset):
     def __init__(self, texts, labels):
@@ -84,9 +86,9 @@ test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 vocab_size = len(vocab) + 1
 embed_size = 500
 hidden_size = 512  # idk
-output_size = len(model_meta.labels_text)
+output_size = len(model_tools.labels_text)
 
-model = model_meta.LSTMClassifier(vocab_size, embed_size, hidden_size, output_size).to(DEVICE)
+model = base.model_structure.LSTMClassifier(vocab_size, embed_size, hidden_size, output_size).to(DEVICE)
 criterion = nn.BCELoss().to(DEVICE)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -102,17 +104,48 @@ for epoch in range(TRAIN_EPOCHS):
     print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
 
 model.eval()
-
 # Test
 with torch.no_grad():
     for texts, labels in test_loader:
+        print(texts)
         scores = model(texts.to(DEVICE))
-        print(model_meta.decode(vocab_reversed, texts.squeeze()), model_meta.get_best(scores.squeeze()))
+        print(model_tools.decode(vocab_reversed, texts.squeeze().numpy()), model_tools.get_best(scores.squeeze().cpu().numpy()))
 
 while True:
     i = input("Save this model? Y/N").lower()
     if i == "y":
-        torch.save(model, SAVE_PATH)
         break
     elif i == "n":
-        break
+        quit(-1)
+
+
+
+model.to("cpu")
+x = torch.from_numpy(model_tools.encode(vocab, "ася включи музыку"))
+torch_out = model(x)
+
+# Export the model
+torch.onnx.export(model,               # model being run
+                  (x,),                         # model input (or a tuple for multiple inputs)
+                  SAVE_PATH,   # where to save the model (can be a file or file-like object)
+                  export_params=True,        # store the trained parameter weights inside the model file
+                  input_names = ['text'],   # the model's input names
+                  output_names = ['labels'], # the model's output names
+                  dynamic_axes={
+                      'text' : {0: 'batch_size', 1 : 'sequence_length'},
+                      'labels': {0: 'batch_size', 1 : 'sequence_length'}
+                  })
+
+ort_session = onnxruntime.InferenceSession(SAVE_PATH)
+
+def to_numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
+# compute ONNX Runtime output prediction
+ort_inputs = {ort_session.get_inputs()[0].name: to_numpy(x)}
+ort_outs = ort_session.run(None, ort_inputs)
+
+# compare ONNX Runtime and PyTorch results
+np.testing.assert_allclose(to_numpy(torch_out), ort_outs[0], rtol=1e-03, atol=1e-05)
+
+print("ONNX Model test success")
