@@ -1,14 +1,8 @@
-import json
-import configparser
 import re
 import numpy as np
+from base.config import RECOGNITION_LABELS
 
-config = configparser.ConfigParser()
-config.read("./MODEL_CONFIG.ini")
-
-labels_text = json.loads(config.get("Recognition", "labels"))
-
-labels_matrix = np.eye(len(labels_text))
+labels_matrix = np.eye(len(RECOGNITION_LABELS))
 
 def tokenize(text):
     # return list(text)
@@ -16,7 +10,7 @@ def tokenize(text):
 
 def get_best(scores):
     best_idx = np.argmax(scores)
-    return labels_text[best_idx], scores[0][best_idx]
+    return RECOGNITION_LABELS[best_idx], scores[best_idx]
 
 def encode(vocab, text):
     tokenized_text = tokenize(text.lower())
@@ -48,4 +42,4 @@ def simple_forward(model, vocab, text):
 def simple_forward_onnx(ort_session, vocab, text):
     ort_inputs = {"text": encode(vocab, text)}
     ort_outs = ort_session.run(None, ort_inputs)
-    return get_best(ort_outs[0])
+    return get_best(ort_outs[0].squeeze())

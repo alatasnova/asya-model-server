@@ -1,19 +1,22 @@
 from torch import nn
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, output_size):
+    def __init__(self, vocab_size, output_size):
         super(LSTMClassifier, self).__init__()
+
+        embed_size = 20
+        hidden_size = 250  # idk
+
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True)
-        self.fc1 = nn.Linear(hidden_size, 256)
-        self.fc2 = nn.Linear(256, output_size)
-        self.dropout = nn.Dropout(0.5)
-        self.sigmoid = nn.Sigmoid()
+        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True, num_layers=2, bidirectional=True)
+        self.fc1 = nn.Linear(hidden_size * 2, output_size)
+        self.dropout = nn.Dropout(0.3)
+        self.softmax = nn.Softmax()
 
     def forward(self, x):
-        x = self.dropout(self.embedding(x))  # Shape: (batch_size, sequence_length, embed_size)
+        x = self.embedding(x)  # Shape: (batch_size, sequence_length, embed_size)
         lstm_out, (h_n, _) =  self.lstm(x)  # Shape: (batch_size, sequence_length, hidden_size)
-        h_n = h_n[-1]  # Get the last hidden state
+        # h_n = h_n[-1]  # Get the last hidden state
+        h_n = h_n[-2:].transpose(0, 1).contiguous().view(x.size(0), -1)
         out = self.dropout(self.fc1(h_n))  # Shape: (batch_size, output_size)
-        out = self.dropout(self.fc2(self.sigmoid(out)))
-        return self.sigmoid(out)
+        return self.softmax(out)
