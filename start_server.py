@@ -37,6 +37,8 @@ if __name__ == '__main__':
 
     if inp_port is None:
         inp_port = input("Enter port (default 5000):")
+        if inp_port == "":
+            inp_port = "5000"
     if inp_host is None:
         inp_host = "127.0.0.1"
 
